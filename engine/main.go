@@ -89,7 +89,7 @@ type PriorityQueue struct {
 func handleError(c *gin.Context, statusCode int, message string, err error) {
 	errorResponse := ErrorResponse{
 		Success: false,
-		Data:    map[string]string{"error": message},
+		Data:    map[string]string{"error": message + err.Error()},
 	}
 	c.IndentedJSON(statusCode, errorResponse)
 }
@@ -187,6 +187,8 @@ func createOrder(request *PlaceStockOrderRequest, userName string) (Order, error
 	return order, nil
 } // createOrder
 
+var existingOrderIDs = make(map[int]struct{})
+
 func HandlePlaceStockOrder(c *gin.Context) {
 	user_name, exists := c.Get("user_name")
 	if !exists || user_name == nil {
@@ -223,13 +225,19 @@ func HandlePlaceStockOrder(c *gin.Context) {
 		return
 	}
 
+	if _, exists := existingOrderIDs[order.StockID]; !exists {
+    updateMarketStockPrice(order.StockID, *order.Price)
+    // Add the order ID to the hashset to mark it as processed
+    existingOrderIDs[order.StockID] = struct{}{}
+   	}
+
 	// to be safe, lock here
 	book.mu.Lock()
 	defer book.mu.Unlock()
 
 	if order.IsBuy {
 		if err := verifyWalletBeforeTransaction(userName, order); err != nil {
-			handleError(c, http.StatusBadRequest, "Insufficient funds", err)
+			handleError(c, http.StatusBadRequest, "Failed to verify Wallet", err)
 			return
 		}
 		
@@ -253,7 +261,7 @@ func HandlePlaceStockOrder(c *gin.Context) {
 		printq(book)
 	} else {
 		if err := verifyStockBeforeTransaction(userName, order); err != nil {
-			handleError(c, http.StatusBadRequest, "Insufficient stock", err)
+			handleError(c, http.StatusBadRequest, "Failed to verify stocks", err)
 			return
 		}
 
@@ -270,12 +278,6 @@ func HandlePlaceStockOrder(c *gin.Context) {
 		processOrder(book, order)
 
 		printq(book)
-	}
-
-	// Update the stock price
-	if err := updateMarketStockPrice(book, order); err != nil {
-		handleError(c, http.StatusInternalServerError, "Failed to update stock price", err)
-		return
 	}
 
 	response := PlaceStockOrderResponse{
@@ -383,7 +385,6 @@ func postprocessingRemoveSellOrder(order Order) {
 	}
 }
 
-
 func HandleCancelStockTransaction(c *gin.Context) {
 	userName, exists := c.Get("user_name")
 	if !exists || userName == nil {
@@ -455,6 +456,17 @@ func matchLimitBuyOrder(book *OrderBook, order Order) {
 		// If the lowest sell order price is less than or equal to the buy order price, execute the trade
 		if *lowestSellOrder.Price == *highestBuyOrder.Price {
 			executeBuyTrade(book, highestBuyOrder , lowestSellOrder)
+			db, err := openConnection()
+            if err != nil {
+                fmt.Printf("Failed to connect to database: %v\n", err)
+                return
+            }
+    
+            _, err = db.Exec("UPDATE stocks SET current_price = $1 WHERE stock_id = $2", *order.Price, order.StockID)
+            if err != nil {
+                fmt.Printf("Failed to update stock price: %v\n", err)
+                return
+            }
 			fmt.Printf("\nTrade Executed - Buy Order: ID=%s, Quantity=%d, Price=$%.2f | Sell Order: ID=%s, Quantity=%d, Price=$%.2f\n", 
 			highestBuyOrder.StockTxID, highestBuyOrder.Quantity, *highestBuyOrder.Price, lowestSellOrder.StockTxID, lowestSellOrder.Quantity, *lowestSellOrder.Price)
 		} else {
@@ -483,11 +495,21 @@ func matchMarketBuyOrder(book *OrderBook, order Order) {
 		// refund money, remove transaction from wallet_transactions, stock_transactions, exit with error
 		fmt.Println("Cancel order: No Sell orders available")
 	}
-
 	// Match the buy order with the lowest Sell order that is less than or equal to the buy order price
 	for order.Quantity > 0 && book.SellOrders.Len() > 0 {
 		lowestSellOrder := heap.Pop(&book.SellOrders).(*Order)
 		executeBuyTrade(book, &order, lowestSellOrder)
+		// db, err := openConnection()
+		// if err != nil {
+		// 	fmt.Printf("Failed to connect to database: %v\n", err)
+		// 	return
+		// }
+
+		// _, err = db.Exec("UPDATE stocks SET current_price = $1 WHERE stock_id = $2", *order.Price, order.StockID)
+		// if err != nil {
+		// 	fmt.Printf("Failed to update stock price: %v\n", err)
+		// 	return
+		// }
 		fmt.Printf("\nTrade Executed - Buy Order: ID=%s, Quantity=%d, Price=$%.2f | Sell Order: ID=%s, Quantity=%d, Price=$%.2f\n", 
 		order.StockTxID, order.Quantity, *lowestSellOrder.Price, lowestSellOrder.StockTxID, lowestSellOrder.Quantity, *lowestSellOrder.Price)
 	}
@@ -496,6 +518,8 @@ func matchMarketBuyOrder(book *OrderBook, order Order) {
 func executeBuyTrade(book *OrderBook, order *Order, sellOrder *Order){
 	tradeQuantity := min(order.Quantity, sellOrder.Quantity)
 	tradingPrice := sellOrder.Price
+
+	updateMarketStockPrice(order.StockID, *tradingPrice)
 
 	if order.Quantity > sellOrder.Quantity {
 		// execute partial trade for buy order and complete trade for sell order
@@ -525,7 +549,7 @@ func completeBuyOrder(book *OrderBook, buyOrder *Order, tradeQuantity int) {
 		fmt.Println("Error updating stock portfolio: ", err)
 	}
 
-	if err := setStatus(buyOrder, "COMPLETED"); err != nil {
+	if err := setStatus(buyOrder, "COMPLETED", false); err != nil {
 		fmt.Println("Error setting status: ", err)
 	}
 }
@@ -543,6 +567,17 @@ func matchLimitSellOrder(book *OrderBook, order Order) {
 
 		if *highestBuyOrder.Price == *lowestSellOrder.Price {
 			executeSellTrade(book, highestBuyOrder, lowestSellOrder)
+			db, err := openConnection()
+            if err != nil {
+                fmt.Printf("Failed to connect to database: %v\n", err)
+                return
+            }
+    
+            _, err = db.Exec("UPDATE stocks SET current_price = $1 WHERE stock_id = $2", *order.Price, order.StockID)
+            if err != nil {
+                fmt.Printf("Failed to update stock price: %v\n", err)
+                return
+            }
 			fmt.Printf("\nTrade Executed - Buy Order: ID=%s, Quantity=%d, Price=$%.2f | Sell Order: ID=%s, Quantity=%d, Price=$%.2f\n", 
 			highestBuyOrder.StockTxID, highestBuyOrder.Quantity, *highestBuyOrder.Price, lowestSellOrder.StockTxID, lowestSellOrder.Quantity, *lowestSellOrder.Price)
 		} else {
@@ -575,6 +610,17 @@ func matchMarketSellOrder(book *OrderBook, order Order) {
 		highestBuyOrder := heap.Pop(&book.BuyOrders).(*Order)
 
 		executeSellTrade(book, highestBuyOrder, &order)
+		db, err := openConnection()
+		if err != nil {
+			fmt.Printf("Failed to connect to database: %v\n", err)
+			return
+		}
+
+		_, err = db.Exec("UPDATE stocks SET current_price = $1 WHERE stock_id = $2", *order.Price, order.StockID)
+		if err != nil {
+			fmt.Printf("Failed to update stock price: %v\n", err)
+			return
+		}
 		fmt.Println("Trade executed")
 		fmt.Printf("\nTrade Executed - Buy Order: ID=%s, Quantity=%d, Price=$%.2f | Sell Order: ID=%s, Quantity=%d, Price=$%.2f\n", 
 		highestBuyOrder.StockTxID, highestBuyOrder.Quantity, *highestBuyOrder.Price, order.StockTxID, order.Quantity, *highestBuyOrder.Price)
@@ -584,6 +630,8 @@ func matchMarketSellOrder(book *OrderBook, order Order) {
 func executeSellTrade(book *OrderBook, buyOrder *Order, order *Order){
 	tradeQuantity := min(buyOrder.Quantity, order.Quantity)
 	tradingPrice := buyOrder.Price
+
+	updateMarketStockPrice(order.StockID, *tradingPrice)
 
 	if buyOrder.Quantity > order.Quantity {
 		// execute partial trade for buy order and complete trade for sell order
@@ -613,7 +661,7 @@ func partialFulfillSellOrder(book *OrderBook, order *Order, tradeQuantity int) {
 		fmt.Println("Error updating wallet: ", err)
 	}
 
-	if err := setStatus(order, "PARTIALLY_FULFILLED"); err != nil {
+	if err := setStatus(order, "PARTIALLY_FULFILLED", false); err != nil {
 		fmt.Println("Error setting status: ", err)
 	}
 
@@ -631,12 +679,15 @@ func partialFulfillSellOrder(book *OrderBook, order *Order, tradeQuantity int) {
 		UserName:   order.UserName,
 	}
 
-	if err := setStockTransaction(order.UserName, completedOrder, order.Price, tradeQuantity); err != nil {
-		fmt.Println("Error setting stock transaction: ", err)
-	}
+	fmt.Println("Completed wallet tx: ", completedOrder.WalletTxID)
 
+	// setWalletTransaction should always be before the setStockTransaction
 	if err := setWalletTransaction(order.UserName, completedOrder, order.Price, tradeQuantity, true); err != nil {
 		fmt.Println("Error setting wallet transaction: ", err)
+	}
+
+	if err := setStockTransaction(order.UserName, completedOrder, order.Price, tradeQuantity); err != nil {
+		fmt.Println("Error setting stock transaction: ", err)
 	}
 }
 
@@ -646,7 +697,7 @@ func partialFulfillBuyOrder(book *OrderBook, order *Order, tradeQuantity int) {
 		fmt.Println("Error updating stock portfolio: ", err)
 	}
 
-	if err := setStatus(order, "PARTIALLY_FULFILLED"); err != nil {
+	if err := setStatus(order, "PARTIALLY_FULFILLED", false); err != nil {
 		fmt.Println("Error setting status: ", err)
 	}
 
@@ -664,22 +715,25 @@ func partialFulfillBuyOrder(book *OrderBook, order *Order, tradeQuantity int) {
 		UserName:   order.UserName,
 	}
 
-	if err := setStockTransaction(order.UserName, completedOrder, order.Price, tradeQuantity); err != nil {
-		fmt.Println("Error setting stock transaction: ", err)
-	}
-
+	// setWalletTransaction should always be before the setStockTransaction
 	if err := setWalletTransaction(order.UserName, completedOrder, order.Price, tradeQuantity, false); err != nil {
 		fmt.Println("Error setting wallet transaction: ", err)
 	}
+
+	if err := setStockTransaction(order.UserName, completedOrder, order.Price, tradeQuantity); err != nil {
+		fmt.Println("Error setting stock transaction: ", err)
+	}
+	
 }
 
+// Assumption: assume that completed sell has wallet_tx_id
 func completeSellOrder(book *OrderBook, order *Order, tradeQuantity int, tradingPrice *float64) {
 	fmt.Println("Sell User: ", order.UserName)
 	if err:= updateMoneyWallet(order.UserName, *order, tradingPrice, tradeQuantity, true); err != nil {
 		fmt.Println("Error updating wallet: ", err)
 	}
 
-	if err := setStatus(order, "COMPLETED"); err != nil {
+	if err := setStatus(order, "COMPLETED", true); err != nil {
 		fmt.Println("Error setting status: ", err)
 	}
 
@@ -874,7 +928,11 @@ func setStockTransaction(userName string, tx Order, price *float64, quantity int
 	defer rows.Close()
 
 	wallet_tx_id := ""
-	if rows.Next() {
+
+	// if there is a wallet transaction, then need to pair with it OR,
+	// if status is COMPLETED, the stock transaction need to pair with a wallet transaction
+	if rows.Next() || tx.Status == "COMPLETED"{
+		fmt.Println("Wallet transaction: ", wallet_tx_id)
 		wallet_tx_id = tx.WalletTxID
 	}
 
@@ -909,7 +967,7 @@ func deleteStockTransaction(userName string, order Order) error {
 	return nil
 }
 
-func setStatus(order *Order, status string) error {
+func setStatus(order *Order, status string, isUpdateWalletTxId bool) error {
 	// Connect to database
 	db, err := openConnection()
 	if err != nil {
@@ -927,6 +985,13 @@ func setStatus(order *Order, status string) error {
 	if err != nil {
 		return fmt.Errorf("Failed to update status: %w", err)
 	}
+
+	// assign wallet_tx_id to stock_tx_id if the Sell order is completed 
+	if isUpdateWalletTxId {
+		_, err = db.Exec(`
+			UPDATE stock_transactions SET wallet_tx_id = $1 WHERE user_name = $2 AND stock_tx_id = $3`, order.WalletTxID, order.UserName, order.StockTxID)
+	}
+
 	return nil
 }
 
@@ -963,8 +1028,7 @@ func processOrder(book *OrderBook, order Order) {
 	}
 }
 
-// Stock market price is determined by the lowest sell order price
-func updateMarketStockPrice(book *OrderBook, order Order) error {
+func updateMarketStockPrice(stockID int, price float64) error {
 	fmt.Println("Updating stock price")
 	// Connect to database
 	db, err := openConnection()
@@ -973,18 +1037,8 @@ func updateMarketStockPrice(book *OrderBook, order Order) error {
 	}
 	defer db.Close()
 
-	var updatedPrice float64
-
-	// Check if there are Sell orders
-	if book.SellOrders.Len() > 0 {
-		lowestSellOrder := book.SellOrders.Order[0]
-		updatedPrice = *lowestSellOrder.Price
-	} else {
-		updatedPrice = 0
-	}
-
 	// Update the stock price
-	_, err = db.Exec("UPDATE stocks SET current_price = $1 WHERE stock_id = $2", updatedPrice, order.StockID)
+	_, err = db.Exec("UPDATE stocks SET current_price = $1 WHERE stock_id = $2", price, stockID)
 	if err != nil {
 		return fmt.Errorf("Failed to update stock price: %w", err)
 	}
@@ -1017,6 +1071,13 @@ func verifyWalletBeforeTransaction(userName string, order Order) error {
 		return fmt.Errorf("Failed to connect to database: %w", err)
 	}
 	defer db.Close()
+
+	// get stock id 
+	var stockID int
+	err = db.QueryRow("SELECT stock_id FROM stocks WHERE stock_id = $1", order.StockID).Scan(&stockID)
+	if err != nil {
+		return fmt.Errorf("Stock not exist - Failed to get stock id: %w", err)
+	}
 
 	var price float64
 	if order.OrderType == "MARKET" {
@@ -1051,6 +1112,13 @@ func verifyStockBeforeTransaction(userName string, order Order) error {
 	}
 	defer db.Close()
 
+	// get stock id 
+	var stockID int
+	err = db.QueryRow("SELECT stock_id FROM stocks WHERE stock_id = $1", order.StockID).Scan(&stockID)
+	if err != nil {
+		return fmt.Errorf("Stock not exist - Failed to get stock id: %w", err)
+	}
+
 	// get user stock portfolio
 	var quantity int
 	err = db.QueryRow("SELECT quantity FROM user_stocks WHERE user_name = $1 AND stock_id = $2", userName, order.StockID).Scan(&quantity)
@@ -1065,6 +1133,7 @@ func verifyStockBeforeTransaction(userName string, order Order) error {
 
 	return nil
 }
+
 func checkAndRemoveExpiredOrders() {
     // Iterate over each order book and check for expired orders
     for _, book := range orderBookMap.OrderBooks {
@@ -1075,7 +1144,7 @@ func checkAndRemoveExpiredOrders() {
         for i := 0; i < book.BuyOrders.Len(); {
             order := book.BuyOrders.Order[i]
             if isOrderExpired(order) {
-                // Remove the expired order from the priority queue
+                // Execute the function to remove the expired order and perform post-processing
                 executeRemoveOrder(*order, &book.BuyOrders, i)
             } else {
                 i++
@@ -1086,14 +1155,57 @@ func checkAndRemoveExpiredOrders() {
         for i := 0; i < book.SellOrders.Len(); {
             order := book.SellOrders.Order[i]
             if isOrderExpired(order) {
-                // Remove the expired order from the priority queue
-				executeRemoveOrder(*order, &book.SellOrders, i)
+                // Execute the function to remove the expired order and perform post-processing
+                executeRemoveOrder(*order, &book.SellOrders, i)
             } else {
                 i++
             }
         }
     }
 }
+
+
+
+func refundMoney(userName string, order Order) error {
+    // Connect to the database
+    db, err := openConnection()
+    if err != nil {
+        return fmt.Errorf("Failed to connect to database: %w", err)
+    }
+    defer db.Close()
+
+    // Calculate the total amount to be refunded
+    total := *order.Price * float64(order.Quantity)
+
+    // Update the user's wallet by adding the refunded amount
+    _, err = db.Exec(`
+        UPDATE users SET wallet = wallet + $1 WHERE user_name = $2`, total, userName)
+    if err != nil {
+        return fmt.Errorf("Failed to update wallet: %w", err)
+    }
+
+    return nil
+}
+
+func refundStocks(userName string, order Order) error {
+    // Connect to the database
+    db, err := openConnection()
+    if err != nil {
+        return fmt.Errorf("Failed to connect to database: %w", err)
+    }
+    defer db.Close()
+
+    // Update the user's stock portfolio by adding the refunded quantity
+    _, err = db.Exec(`
+        UPDATE user_stocks SET quantity = quantity + $1 
+        WHERE user_name = $2 AND stock_id = $3`, order.Quantity, userName, order.StockID)
+    if err != nil {
+        return fmt.Errorf("Failed to update stock portfolio: %w", err)
+    }
+
+    return nil
+}
+
 
 func isOrderExpired(order *Order) bool {
     // Parse the timestamp of the order
