@@ -1,7 +1,10 @@
 package main
-
+// 1. MarketSell/Buy Order should not relu on Market Value
+// 2. Remove GetMarketStock
+// 3. Move updateMarketStock location to be later on
+// 4. Update Matching logic to support greater
 import (
-	"container/heap"
+	"container/heap" 
 	"database/sql"
 	"fmt"
 	"github.com/gin-contrib/cors"
@@ -226,10 +229,10 @@ func HandlePlaceStockOrder(c *gin.Context) {
 	}
 
 	if _, exists := existingOrderIDs[order.StockID]; !exists {
-    updateMarketStockPrice(order.StockID, *order.Price)
-    // Add the order ID to the hashset to mark it as processed
-    existingOrderIDs[order.StockID] = struct{}{}
-   	}
+		updateMarketStockPrice(order.StockID, *order.Price)
+		// Add the order ID to the hashset to mark it as processed
+		existingOrderIDs[order.StockID] = struct{}{}
+	}
 
 	// to be safe, lock here
 	book.mu.Lock()
