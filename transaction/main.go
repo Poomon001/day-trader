@@ -326,13 +326,13 @@ func main() {
     }
     defer db.Close()
 
-    db.SetMaxOpenConns(50) // Set maximum number of open connections
+    db.SetMaxOpenConns(10) // Set maximum number of open connections
     db.SetMaxIdleConns(5) // Set maximum number of idle connections
 
 	router := gin.Default()
 
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"http://localhost:3000"}
+	config.AllowOrigins = []string{"http://localhost:3000", "http://localhost"}
 	config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
 	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "token"}
 	config.AllowCredentials = true
