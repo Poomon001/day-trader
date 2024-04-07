@@ -19,8 +19,8 @@ var db *sql.DB
 var secretKey = []byte("secret")
 
 const (
-    // host = "database"
-    host     = "localhost"
+    host = "database"
+    // host     = "localhost"
     port     = 5432
     user     = "nt_user"
     password = "db123"
