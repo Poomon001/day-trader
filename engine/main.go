@@ -161,8 +161,6 @@ func (pq *PriorityQueue) Pop() interface{} {
     return item
 }
 
-/** standard heap interface END **/
-
 // print the queue
 func printq(book *OrderBook) {
 	// Print the order book after adding the order
@@ -184,6 +182,8 @@ func (pq *PriorityQueue) Printn() {
 		fmt.Printf("Stock Tx ID: %s, StockID: %s, WalletTxID: %s, Price: %.2f, Quantity: %.2f, Status: %s, TimeStamp: %s\n", item.StockTxID, item.StockID, item.WalletTxID, *item.Price, item.Quantity, item.Status, item.TimeStamp)
 	}
 }
+
+/** standard heap interface END **/
 
 // generateOrderID generates a unique ID for each order
 func generateOrderID() string {
