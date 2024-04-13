@@ -96,6 +96,9 @@ services:
       context: ./client/app
     ports:
       - "3000:3000"
+    depends_on:
+        rabbitmq3:
+            condition: service_healthy
     networks:
       - nt-network
 
@@ -109,6 +112,9 @@ services:
       POSTGRES_DB: nt_db
     ports:
       - 5432:5432
+    depends_on:
+        rabbitmq3:
+            condition: service_healthy
     volumes:
       - ./user_init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
@@ -124,6 +130,9 @@ services:
       POSTGRES_DB: nt_db
     ports:
       - 5431:5431
+    depends_on:
+        rabbitmq3:
+            condition: service_healthy
     volumes:
       - ./stock_init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
@@ -139,6 +148,9 @@ services:
       POSTGRES_DB: nt_db
     ports:
       - 5430:5430
+    depends_on:
+        rabbitmq3:
+            condition: service_healthy
     volumes:
       - ./tx_init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
@@ -149,6 +161,9 @@ services:
     image: mongo:latest
     ports:
       - "27017:27017"
+    depends_on:
+        rabbitmq3:
+            condition: service_healthy
     networks:
       - nt-network
 
