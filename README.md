@@ -13,41 +13,60 @@ Nightrader is a robust stock trading platform built on microservices architectur
 
 ## Endpoints
 
-| Category       | Method | Endpoint                  | Parameters                                         |
-|----------------|--------|---------------------------|----------------------------------------------------|
-| Authentication | POST   | /register                 | { <br/> &nbsp;&nbsp;&nbsp;&nbsp;"username": string, <br/> &nbsp;&nbsp;&nbsp;&nbsp;"password": string, <br/> &nbsp;&nbsp;&nbsp;&nbsp;"name": string <br/> } |
-|                | POST   | /login                    | { <br/> &nbsp;&nbsp;&nbsp;&nbsp;"user_name": string, <br/> &nbsp;&nbsp;&nbsp;&nbsp;"password": string <br/> } |
-| Transaction    | GET    | /getStockPrices           | -                                                  |
-|                | GET    | /getWalletBalance         | -                                                  |
-|                | GET    | /getStockPortfolio        | -                                                  |
-|                | GET    | /getWalletTransactions    | -                                                  |
-|                | GET    | /getStockTransactions     | -                                                  |
-|                | POST   | /addMoneyToWallet         | { <br/> &nbsp;&nbsp;&nbsp;&nbsp;"amount": number <br/> } |
-|                | POST   | /placeStockOrder          | { <br/> &nbsp;&nbsp;&nbsp;&nbsp;"stock_id": number, <br/> &nbsp;&nbsp;&nbsp;&nbsp;"is_buy": boolean, <br/> &nbsp;&nbsp;&nbsp;&nbsp;"order_type": string, <br/> &nbsp;&nbsp;&nbsp;&nbsp;"quantity": number, <br/> &nbsp;&nbsp;&nbsp;&nbsp;"price": number <br/> } |
-|                | POST   | /cancelStockTransaction   | { <br/> &nbsp;&nbsp;&nbsp;&nbsp;"stock_tx_id": string <br/> } |
-| Setup          | POST   | /createStock              | { <br/> &nbsp;&nbsp;&nbsp;&nbsp;"stock_name": string <br/> } |
-|                | POST   | /addStockToUser           | { <br/> &nbsp;&nbsp;&nbsp;&nbsp;"stock_id": string, <br/> &nbsp;&nbsp;&nbsp;&nbsp;"quantity": number <br/> } |
+| Category       | Method | Endpoint                | Parameters                                                                                                                                                                                                                                                       |
+| -------------- | ------ | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Authentication | POST   | /register               | { <br/> &nbsp;&nbsp;&nbsp;&nbsp;"username": string, <br/> &nbsp;&nbsp;&nbsp;&nbsp;"password": string, <br/> &nbsp;&nbsp;&nbsp;&nbsp;"name": string <br/> }                                                                                                       |
+|                | POST   | /login                  | { <br/> &nbsp;&nbsp;&nbsp;&nbsp;"user_name": string, <br/> &nbsp;&nbsp;&nbsp;&nbsp;"password": string <br/> }                                                                                                                                                    |
+| Transaction    | GET    | /getStockPrices         | -                                                                                                                                                                                                                                                                |
+|                | GET    | /getWalletBalance       | -                                                                                                                                                                                                                                                                |
+|                | GET    | /getStockPortfolio      | -                                                                                                                                                                                                                                                                |
+|                | GET    | /getWalletTransactions  | -                                                                                                                                                                                                                                                                |
+|                | GET    | /getStockTransactions   | -                                                                                                                                                                                                                                                                |
+|                | POST   | /addMoneyToWallet       | { <br/> &nbsp;&nbsp;&nbsp;&nbsp;"amount": number <br/> }                                                                                                                                                                                                         |
+|                | POST   | /placeStockOrder        | { <br/> &nbsp;&nbsp;&nbsp;&nbsp;"stock_id": number, <br/> &nbsp;&nbsp;&nbsp;&nbsp;"is_buy": boolean, <br/> &nbsp;&nbsp;&nbsp;&nbsp;"order_type": string, <br/> &nbsp;&nbsp;&nbsp;&nbsp;"quantity": number, <br/> &nbsp;&nbsp;&nbsp;&nbsp;"price": number <br/> } |
+|                | POST   | /cancelStockTransaction | { <br/> &nbsp;&nbsp;&nbsp;&nbsp;"stock_tx_id": string <br/> }                                                                                                                                                                                                    |
+| Setup          | POST   | /createStock            | { <br/> &nbsp;&nbsp;&nbsp;&nbsp;"stock_name": string <br/> }                                                                                                                                                                                                     |
+|                | POST   | /addStockToUser         | { <br/> &nbsp;&nbsp;&nbsp;&nbsp;"stock_id": string, <br/> &nbsp;&nbsp;&nbsp;&nbsp;"quantity": number <br/> }                                                                                                                                                     |
 
 ## Installation
 
 1. **Prerequisites**: Ensure Docker is installed and configured on your system.
-   
 2. **Clone the repository**:
+
    ```bash
    git clone https://github.com/bhavanvir/day-trader.git
    ```
 
 3. **Navigate to the project directory**:
+
    ```bash
    cd day-trader
    ```
 
 4. **Start up all microservices**:
+
    ```bash
    docker compose up --build -d
    ```
 
 5. **Access the frontend**:
    Open a web browser and go to `localhost:3000` to start trading.
+
+6. **Test Frontend**:
+
+   ```bash
+   make start
+   jmeter -n -t tests/Seng468_Report1_No_Delay.jmx
+   ```
+
+   Navigate to localhost in your browser then you can login with FinanceGuru with password Fguru@2024
+
+7. **Load Tets**:
+   Download JMeter
+   ```bash
+   cd <PATH>\JMeter\apache-jmeter-5.6.3\apache-jmeter-5.6.3\bin
+   jmeter -n -t "C:\Users<PATH>\tests\TestRun3\InitialSetup.jmx" -l "C:\Users<PATH>\tests\TestRun3\result\testresults1.jtl"
+   jmeter -n -t "C:\Users<PATH>\tests\TestRun3\UserThreadTest.jmx" -l "C:\Users<PATH>\tests\TestRun3\result\testresults2.jtl"
+   ```
 
 Feel free to reach out if you have any questions or need further assistance. Happy trading!

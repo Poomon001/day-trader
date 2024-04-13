@@ -292,7 +292,8 @@ func HandlePlaceStockOrder(c *gin.Context) {
         }
 
         processOrder(book, order)
-        LogBuyOrder(order)
+        printq(book) // dont remove for debugging
+        // LogBuyOrder(order)
     } else {
         if err := verifyStockBeforeTransaction(userName, order); err != nil {
             handleError(c, http.StatusBadRequest, "Failed to verify stocks", err)
@@ -310,7 +311,8 @@ func HandlePlaceStockOrder(c *gin.Context) {
         }
 
         processOrder(book, order)
-        LogSellOrder(order)
+        printq(book) // dont remove for debugging
+        // LogSellOrder(order)
     }
 
     response := PlaceStockOrderResponse{
