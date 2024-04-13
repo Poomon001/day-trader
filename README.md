@@ -55,23 +55,19 @@ Nightrader is a robust stock trading platform built on microservices architectur
 6. **Setup RabbitMQ**:
    download: https://www.rabbitmq.com/docs/download
 
-   Under Dependencies: Install Erlang (v26.0+)
-
-   Install rabbitmq-server-3131.exe.asc
-
-   Open RabbitMQ Command Prompt - from Window search
-
-   In the command: enter rabbitmq-plugins enable rabbitmq_management
-
-   In Window search type: rabbitMQ -> there will be rabbitMQ - start/stop
+   - Under Dependencies: Install Erlang (v26.0+)
+   - Install rabbitmq-server-3131.exe.asc
+   - Open RabbitMQ Command Prompt - from Window search
+   - In the command: enter rabbitmq-plugins enable rabbitmq_management
+   - In Window search type: rabbitMQ -> there will be rabbitMQ - start/stop
 
    See UI details:
 
-   go to: http://localhost:15672/
+   - go to: http://localhost:15672/
 
    Start:
 
-   docker compose up rabbitMQ3
+   - docker compose up rabbitMQ3
 
 7. **Test Frontend**:
 
