@@ -1,0 +1,13 @@
+Label,# Samples,Average,Median,90% Line,95% Line,99% Line,Min,Max,Error %,Throughput,Received KB/sec,Sent KB/sec
+14 Register Request,100,43,43,63,70,79,21,82,0.000%,543.47826,89.70,143.09
+15 Login Request,100,26,23,51,59,99,3,107,0.000%,502.51256,178.18,118.92
+16 Get Stock Prices Request,100,36,28,67,76,101,4,106,0.000%,384.61538,178.03,131.12
+17 Add Money Request,100,40,37,66,98,102,8,113,0.000%,347.22222,55.61,131.60
+18 Get Wallet Balance Request,100,10,5,27,31,57,2,60,0.000%,348.43206,65.33,119.46
+19 Place Stock Order Request,100,2620,2612,4623,4912,5141,65,5203,0.000%,18.22157,2.92,8.72
+20 Get Stock Transactions Request,100,3,2,5,5,8,1,24,0.000%,18.42978,11.66,6.39
+21 Get Wallet Transactions Request,100,3,3,5,6,9,1,10,0.000%,18.43998,7.87,6.41
+22 Get Wallet Balance Request,100,2,2,5,6,8,1,15,0.000%,18.46040,3.44,6.33
+23 Get Stock Portfolio Request,100,2,2,4,5,6,1,15,0.000%,18.46381,5.79,6.35
+Debug Sampler,100,0,0,1,1,2,0,3,0.000%,18.48429,23.18,0.00
+TOTAL,1100,253,5,91,2333,4563,0,5203,0.000%,155.87360,60.99,48.50
