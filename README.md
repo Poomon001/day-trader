@@ -1,6 +1,6 @@
 # Nightrader [![test](https://github.com/bhavanvir/day-trader/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/bhavanvir/day-trader/actions/workflows/main.yml)
 
-Nightrader is a robust stock trading platform built on microservices architecture. We leverage Docker for orchestration, Go and Gin-Gonic for the backend API, PostgreSQL for our database, and React with Daisy UI and TailwindCSS for the frontend.
+Nightrader is a robust stock trading platform built on microservices architecture. We leverage Docker for orchestration, Go and Gin-Gonic for the backend, PostgreSQL and MongoDB for our database, React with Daisy UI and TailwindCSS for the frontend, and Newman and JMeter for API and load testing.
 
 ## Services
 
